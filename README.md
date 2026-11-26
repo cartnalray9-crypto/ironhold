@@ -5,7 +5,7 @@ structures into higher tiers, research three linked ceilings, train and combine 
 hunt monsters for gear, and bring friends into your banner.
 
 **There is no shop in this game.** No VIP tiers, no packages, no currency bundles, no paid
-boosts, no ads. Progression is time plus the skill of your merge and space decisions.
+boosts. The page carries Google AdSense Auto ads; they never touch gameplay. Progression is time plus the skill of your merge and space decisions.
 
 Live preview: https://ironhold-9vk5xw-preview.freebuff.site
 
@@ -64,7 +64,22 @@ resource is locked behind a level or a purchase.
 The Banner tab creates an invite link containing your banner code and world seed. Anyone
 who opens it joins the same banner and plays the same frontier layout. Pasting a friend's
 link adds their card to your roster; each ally can send one supply drop every 30 minutes.
-This is asynchronous co-op — there is no account system and no server cost.
+This is asynchronous co-op.
+
+### Accounts and cloud saves
+Sign in with Google (top bar, or the start screen) to keep your game on your account. Ironhold
+uses the same Firebase project as werewolf's entertainment site (`entertainment-71888`), so the
+same login and **friend code** work in both places. The save lives in Firestore at
+`user/{FRIEND_CODE}/platform/mobile/game/ironhold` (`src/game/cloud.ts`, `src/components/Account.tsx`):
+
+- the browser save still works, so the game plays signed out and with no signal;
+- signed in, the newest save of the same game wins, so you can switch devices or replace a lost one;
+- if this device and the account hold two *different* games, you are asked which to keep;
+  nothing is ever replaced silently;
+- uploads happen at most every 30 seconds, plus right away when the page is hidden or closed.
+
+For sign-in to work on a new web address, add that host under Firebase > Authentication >
+Settings > Authorized domains.
 
 ---
 
@@ -97,6 +112,8 @@ src/types.ts          game state model
 src/game/data.ts      all rules and formulas: costs, times, caps, waves, zones, gear, heroes
 src/game/engine.ts    state transitions: build, merge, research, train, hunt, alliances
 src/game/save.ts      localStorage save/load, invite code in the URL
+src/game/cloud.ts     Google sign-in, site friend code, Firestore save
+src/components/Account.tsx  account chip, cloud sync, "which game to keep" dialog
 src/components/       Base (islands), Research, Troops, Heroes, World, Banner
 src/styles.css        theme and mobile layout
 ```
@@ -105,7 +122,7 @@ Progress is saved in the browser's `localStorage` under `ironhold.save.v1`.
 
 ## Fair-play commitments
 
-- No shop, no VIP, no packages, no ads, no loot boxes, no energy gates.
+- No shop, no VIP, no packages, no loot boxes, no energy gates.
 - Power comes only from troops, and troops come from time and merge decisions.
 - Every resource is gatherable from the first minute.
 - Gear drops only from ground you explore.

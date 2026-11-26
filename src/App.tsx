@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GameState } from './types';
 import { RES_KEYS, RES_META, fmt, fmtTime } from './game/data';
 import { addAlly, hqLevel, newGame, powerOf, productionRates, tick } from './game/engine';
@@ -10,6 +10,7 @@ import Heroes from './components/Heroes';
 import World from './components/World';
 import Banner from './components/Banner';
 import type { Act, TabKey } from './components/common';
+import { AccountChip, ClashDialog, StartSignIn, useCloudSync } from './components/Account';
 
 const TABS: { key: TabKey; label: string; short: string; icon: string }[] = [
   { key: 'research', label: 'Research', short: 'Tech', icon: '🔬' },
@@ -19,7 +20,7 @@ const TABS: { key: TabKey; label: string; short: string; icon: string }[] = [
   { key: 'banner', label: 'Banner', short: 'Banner', icon: '⚑' },
 ];
 
-function Start({ onStart }: { onStart: (name: string) => void }) {
+function Start({ onStart, signin }: { onStart: (name: string) => void; signin: ReactNode }) {
   const [name, setName] = useState('');
   const invited = urlAllyCode() !== null;
   return (
@@ -38,6 +39,7 @@ function Start({ onStart }: { onStart: (name: string) => void }) {
           <li>Train and combine troops, hunt monsters, and break waves to open more island plots.</li>
           <li>Heroes grow from the time you gather and the fights you take. Gear only drops from ground you explore.</li>
         </ul>
+        {signin}
         {invited && <p className="okline">You were invited to a banner — you will join it on start.</p>}
         <form
           onSubmit={(e) => {
@@ -69,6 +71,13 @@ export default function App() {
 
   const ref = useRef<GameState | null>(null);
   ref.current = state;
+  // when this device last played, read before the first catch-up tick moves the clock
+  const bootStamp = useRef<number>(-1);
+  if (bootStamp.current < 0) bootStamp.current = state?.updatedAt ?? 0;
+  const cloud = useCloudSync(ref, bootStamp.current, (s) => {
+    ref.current = s;
+    setState(s);
+  });
 
   const act: Act = (fn) => {
     setState((prev) => {
@@ -122,7 +131,12 @@ export default function App() {
   }, [state]);
 
   if (!state) {
-    return <Start onStart={(name) => setState(newGame(name, urlAllyCode() ?? undefined))} />;
+    return (
+      <Start
+        onStart={(name) => setState(newGame(name, urlAllyCode() ?? undefined))}
+        signin={<StartSignIn user={cloud.user} status={cloud.status} />}
+      />
+    );
   }
 
   const s = state;
@@ -160,8 +174,10 @@ export default function App() {
           <span className="stat-pill">
             <span className="muted">Waves</span> <b>{s.wavesCleared}</b>
           </span>
+          <AccountChip user={cloud.user} status={cloud.status} />
         </div>
       </header>
+      <ClashDialog clash={cloud.clash} local={s} onPick={(k) => void cloud.resolve(k)} />
 
       <div className="jobs-strip">
         {s.jobs.length === 0 ? (
@@ -226,7 +242,7 @@ export default function App() {
         </aside>
       </main>
 
-      <footer className="foot">Ironhold · no shop, no VIP, no packages · saved in this browser</footer>
+      <footer className="foot">Ironhold · no shop, no VIP, no packages · {cloud.user ? 'saved to your account and this browser' : 'saved in this browser (sign in to keep it on every device)'}</footer>
 
       <nav className="mobile-nav">
         <button className="mnav-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
